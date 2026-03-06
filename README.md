@@ -74,3 +74,23 @@ meeting-minutes-ai/
 ## 👤 作者
 
 **Alan** — [@alan902120](https://github.com/alan902120)
+
+## 📋 使用方式更新
+
+### 基本用法（只有音檔）
+```bash
+python src/main.py meeting.m4a output/minutes.md
+```
+
+### 完整用法（音檔 + 會議基本資料）
+```bash
+python src/main.py meeting.m4a output/minutes.md info.txt
+```
+
+### info.txt 範例
+```
+會議名稱：XXX計畫第N次部會溝通會議
+會議主席：XX單位 XXX副執秘
+會議出席人員：A單位 XXX、B單位 XXX
+本署出席人員：金屬機電組 XXX科長、航太小組 XXX副組長、覃炳瑞專案經理
+```
