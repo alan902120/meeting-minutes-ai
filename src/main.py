@@ -14,24 +14,36 @@ load_dotenv()
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-PROMPT_TEMPLATE = """你是一位專業的會議記錄助手。請根據以下會議逐字稿，整理出一份正式的會議記錄。
+PROMPT_TEMPLATE = """你是一位政府機關的專業會議記錄助手。請根據以下資訊，整理出一份正式的會議記錄。
 
-格式如下：
-## 重點說明
-（本次會議的主要討論事項摘要）
+【基本資料】
+{meeting_info}
 
-## 意見整理
-（各方意見與討論內容）
-
-## 主席裁示
-（主席的決定或指示）
-
-## 擬辦
-（後續行動事項，包含負責人與期限）
+【逐字稿】
+{transcript}
 
 ---
-以下是逐字稿：
-{transcript}
+
+請依照以下格式輸出會議記錄：
+
+一、會議名稱：（從基本資料填入）
+二、會議主席：（從基本資料填入）
+三、會議出席人員：（從基本資料填入）
+四、本署出席人員：（從基本資料填入）
+五、重點說明：
+（根據逐字稿，以2至4句話摘要本次會議的核心討論事項與背景說明。文字精簡，不重複結論內容。）
+六、意見整理：（僅在逐字稿中有明確的與會者意見交流、討論或爭議時才列出此段；若無實質意見交流，請直接省略此項，不要留空白標題）
+（條列各方主要意見，每條以「（一）（二）...」編號）
+七、會議結論與主席裁示：
+（一）...
+（二）...
+（條列主席的決定與指示，每條以「（一）（二）...」編號，用詞正式，以「請」字開頭帶出執行要求）
+八、擬辦：（以一段文字說明後續執行方向，開頭用「本案將依主席裁示辦理」，並說明具體行動）
+
+注意事項：
+- 文字風格參照政府公文，正式、精簡、不口語
+- 不推論、不補寫、不升格任何未在逐字稿中出現的內容
+- 人名、單位名稱、職稱以基本資料為準，不自行更改
 """
 
 def transcribe_audio(audio_path: str, model_size: str = "base") -> str:
@@ -44,7 +56,7 @@ def transcribe_audio(audio_path: str, model_size: str = "base") -> str:
     
     return result["text"]
 
-def generate_minutes(transcript: str) -> str:
+def generate_minutes(transcript: str, meeting_info: str = "") -> str:
     """使用 Claude 將逐字稿整理成會議記錄"""
     if not ANTHROPIC_API_KEY:
         raise ValueError("請設定 ANTHROPIC_API_KEY 環境變數")
@@ -58,7 +70,10 @@ def generate_minutes(transcript: str) -> str:
         messages=[
             {
                 "role": "user",
-                "content": PROMPT_TEMPLATE.format(transcript=transcript)
+                "content": PROMPT_TEMPLATE.format(
+                    transcript=transcript,
+                    meeting_info=meeting_info if meeting_info else "（未提供，請依逐字稿內容判斷）"
+                )
             }
         ]
     )
@@ -79,10 +94,18 @@ def main():
     
     audio_path = sys.argv[1]
     output_path = sys.argv[2] if len(sys.argv) > 2 else "output/minutes.md"
+    info_path = sys.argv[3] if len(sys.argv) > 3 else None
     
     if not os.path.exists(audio_path):
         print(f"❌ 找不到音檔：{audio_path}")
         sys.exit(1)
+    
+    # 讀取會議基本資料（選填）
+    meeting_info = ""
+    if info_path and os.path.exists(info_path):
+        with open(info_path, "r", encoding="utf-8") as f:
+            meeting_info = f.read()
+        print(f"📋 已載入會議基本資料：{info_path}")
     
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
@@ -91,7 +114,7 @@ def main():
     print(f"\n📝 逐字稿（前200字）：\n{transcript[:200]}...\n")
     
     # Step 2: 整理
-    minutes = generate_minutes(transcript)
+    minutes = generate_minutes(transcript, meeting_info)
     
     # Step 3: 儲存
     save_output(minutes, output_path)
